@@ -1,0 +1,18 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+ car make -- average price
+```{r}
+library(readr)
+library(dplyr)
+
+tc <- read_csv("tc.csv")
+ordered_grouped_make <- tc %>%
+  group_by(Make) %>%
+  summarise(average = mean(Price)) %>%
+  arrange(desc(average))
+write.csv(ordered_grouped_make, file = "ordered_grouped_make.csv")
+```
+
