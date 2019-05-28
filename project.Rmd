@@ -14,8 +14,15 @@ ordered_grouped_make <- tc %>%
   summarise(average = mean(Price)) %>%
   arrange(desc(average))
 write.csv(ordered_grouped_make, file = "ordered_grouped_make.csv")
+## most popular brand
+ordered <- read_csv("ordered_grouped_make.csv")
+most_popular <- tc %>%     ## this will return Ford, which is the most popular car brand
+  group_by(Make) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
 ```
 
+# part 2
 bootstrap correlation test -- test assumption to use regression
 ```{r}
 # select only price, year and mileage
@@ -23,11 +30,11 @@ data1 <- tc %>%
   select(Price, Year, Mileage)
 n = nrow(data1)
 # test between year and price
-w = sample(n,n,replace=T)
-data1_BT = data1[w,]
-cor(data1_BT)[1,2]  # cor between price and year
-cor(data1_BT)[1,3] # cor between price and mileage
-cor(data1_BT)[2,3] # cor between year and mileage
+#w = sample(n,n,replace=T)
+#data1_BT = data1[w,]
+#cor(data1_BT)[1,2]  # cor between price and year
+#cor(data1_BT)[1,3] # cor between price and mileage
+#cor(data1_BT)[2,3] # cor between year and mileage
 
 B = 100
 data1_cor_BT = matrix(NA, nrow=B, ncol=3) # to compute two correlation
@@ -54,10 +61,10 @@ cor.test(tc$Price, tc$Mileage,
          alternative = "two.sided",
          method = "pearson")
 
-cor.test(tc$Year, tc$Mileage,                             ## |abs| less than 0.8 -- no multicollinearity
+cor.test(tc$Year, tc$Mileage,                 
          alternative = "two.sided",
          method = "pearson")
-# result:
+# bootstrap result:
 #       5%       95% 
 #0.4039420 0.4088868 
 #        5%        95% 
@@ -67,23 +74,67 @@ cor.test(tc$Year, tc$Mileage,                             ## |abs| less than 0.8
 
 
 ```
-# part 2
-```{r}
-ordered <- read_csv("ordered_grouped_make.csv")
-most_popular <- tc %>%     ## this will return Ford, which is the most popular car brand
-  group_by(Make) %>%
-  summarise(count = n()) %>%
-  arrange(desc(count))
 
+# display linearity -- yes, linear -- we can fit lm
+```{r}
+plot(x = tc$Year, y = tc$Price)
+plot(x = tc$Mileage, y = tc$Price)
 ```
 
-# part 2 price ~ mileage, year, 
-
+# one bootstrap regression eg for ford
 ```{r}
-
+brand = "Ford"
+temp = tc %>% 
+  filter(Make == brand) %>% 
+  select(Price, Year, Mileage)
+fit = lm(Price~Year + Mileage, data=temp)
+n= nrow(temp)
+y_predict = predict(fit)
+B = 100
+coeff_BT_wild = matrix(NA, nrow=B, ncol=3)
+for(i_BT in 1:B){
+  y_bt = y_predict+rnorm(n, sd=abs(fit$residuals))
+  data1_BT = data.frame(years=temp$Year, mileage = temp$Mileage, price=y_bt)
+  fit_BT = lm(price~years + mileage, data=data1_BT)
+  coeff_BT_wild[i_BT,] = fit_BT$coefficients
+}
+colnames(coeff_BT_wild) = c("Intercept","ce year", "ce mileage")
+quantile(coeff_BT_wild[,'Intercept'],c(0.05,0.95))
+quantile(coeff_BT_wild[,'ce year'],c(0.05,0.95))
+quantile(coeff_BT_wild[,'ce mileage'],c(0.05,0.95))
 ```
 
 
+# discard! brand: Ford, training 7/3
+
+```{r}
+tesla = tc %>% filter(Make == "Audi")
+train_size = nrow(tesla) * 0.7  ## 246
+set.seed(100)
+trainingRows <- sample(1:nrow(tesla), 246)
+train <- tesla[trainingRows, ]
+test <- tesla[-trainingRows, ]
+```
+
+# discard! convert Mileage and Year to categorical 
+```{r}
+train$Mileage = factor(train$Mileage)
+train$Year = factor(train$Year)
+fit = lm(Price ~ Year + Mileage + City, data = train)
+summary(fit)
+```
+# convert make into factor -- one liner regression
+```{r}
+train_size = nrow(tc) * 0.7  ## 863129
+set.seed(100)
+trainingRows <- sample(1:nrow(tc), 863129)
+train <- tc[trainingRows, ]
+test <- tc[-trainingRows, ]
+
+train$Make = factor(train$Make)
+fit = lm(Price ~ Year + Mileage + Make, data = train)
+summary(fit)
+```
 
 
 
