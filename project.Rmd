@@ -16,3 +16,33 @@ ordered_grouped_make <- tc %>%
 write.csv(ordered_grouped_make, file = "ordered_grouped_make.csv")
 ```
 
+correlation test
+```{r}
+cor.test(tc$Price, tc$Year,
+         alternative = "two.sided",
+         method = "pearson")
+
+cor.test(tc$Price, tc$Mileage,
+         alternative = "two.sided",
+         method = "pearson")
+```
+# part 1
+```{r}
+ordered <- read_csv("ordered_grouped_make.csv")
+most_popular <- tc %>%     ## this will return Ford, which is the most popular car brand
+  group_by(Make) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+```
+
+# part 2 price ~ mileage, year, 
+
+```{r}
+
+```
+
+
+
+
+
