@@ -16,8 +16,36 @@ ordered_grouped_make <- tc %>%
 write.csv(ordered_grouped_make, file = "ordered_grouped_make.csv")
 ```
 
-correlation test
+bootstrap correlation test -- test assumption to use regression
 ```{r}
+# select only price, year and mileage
+data1 <- tc %>%
+  select(Price, Year, Mileage)
+n = nrow(data1)
+# test between year and price
+w = sample(n,n,replace=T)
+data1_BT = data1[w,]
+cor(data1_BT)[1,2]  # cor between price and year
+cor(data1_BT)[1,3] # cor between price and mileage
+cor(data1_BT)[2,3] # cor between year and mileage
+
+B = 100
+data1_cor_BT = matrix(NA, nrow=B, ncol=3) # to compute two correlation
+
+for(i_BT in 1:B){
+  w = sample(n,n,replace=T)
+  data1_BT = data1[w,]
+  data1_cor_BT[i_BT, 1] = cor(data1_BT)[1,2] ## price vs year
+  data1_cor_BT[i_BT, 2] = cor(data1_BT)[1,3]  ## price vs mileage
+  data1_cor_BT[i_BT, 3] = cor(data1_BT)[2,3]  ## year vs mileage
+}
+colnames(data1_cor_BT) = c("price vs year", "price vs mileage", "year vs mileage")
+head(data1_cor_BT)
+quantile(data1_cor_BT[, "price vs year"], c(0.05,0.950)) ## CI for correlation between price and year
+quantile(data1_cor_BT[, "price vs mileage"], c(0.05,0.950)) ## CI for correlation between price and mileage
+quantile(data1_cor_BT[, "year vs mileage"], c(0.05,0.950)) ## CI for correlation between year and mileage
+                                                            ## |abs| less than 0.8 -- no multicollinearity
+
 cor.test(tc$Price, tc$Year,
          alternative = "two.sided",
          method = "pearson")
@@ -25,8 +53,21 @@ cor.test(tc$Price, tc$Year,
 cor.test(tc$Price, tc$Mileage,
          alternative = "two.sided",
          method = "pearson")
+
+cor.test(tc$Year, tc$Mileage,                             ## |abs| less than 0.8 -- no multicollinearity
+         alternative = "two.sided",
+         method = "pearson")
+# result:
+#       5%       95% 
+#0.4039420 0.4088868 
+#        5%        95% 
+#-0.4246398 -0.1296231 
+#        5%        95% 
+#-0.7677143 -0.2485699 
+
+
 ```
-# part 1
+# part 2
 ```{r}
 ordered <- read_csv("ordered_grouped_make.csv")
 most_popular <- tc %>%     ## this will return Ford, which is the most popular car brand
