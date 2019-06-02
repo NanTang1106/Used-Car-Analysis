@@ -7,8 +7,8 @@ car make -- average price
 ```{r}
 library(readr)
 library(dplyr)
-
-tc <- read_csv("tc.csv")
+library(ggplot2)
+tc <- read_csv("new_tc.csv")
 ordered_grouped_make <- tc %>%
   group_by(Make) %>%
   summarise(average = mean(Price)) %>%
@@ -51,9 +51,7 @@ head(data1_cor_BT)
 quantile(data1_cor_BT[, "price vs year"], c(0.05,0.950)) ## CI for correlation between price and year
 quantile(data1_cor_BT[, "price vs mileage"], c(0.05,0.950)) ## CI for correlation between price and mileage
 quantile(data1_cor_BT[, "year vs mileage"], c(0.05,0.950)) ## CI for correlation between year and mileage
-       
-
-## |abs| less than 0.8 -- no multicollinearity
+                                                            ## |abs| less than 0.8 -- no multicollinearity
 
 cor.test(tc$Price, tc$Year,
          alternative = "two.sided",
@@ -77,34 +75,40 @@ cor.test(tc$Year, tc$Mileage,
 
 ```
 
-# display linearity -- yes, linear -- we can fit lm
+# display linearity -- yes, linear -- we can fit lm ?? not so sure
 ```{r}
+ggplot(tc, aes(x = Year, y = Price)) + 
+  geom_point() + 
+  facet_wrap(~Category) 
 plot(x = tc$Year, y = tc$Price)
 plot(x = tc$Mileage, y = tc$Price)
 ```
 
-# explore residual plot to see whether wild/residual bootstrap
+# explore residual plot to see whether wild/residual bootstrap  -- increasing pattern between residual and year, decreasing pattern between residual and mileage -- so we use wild regression
 ```{r}
+n = nrow(tc)
 xbar = mean(tc$Price)
 price = tc$Price
 sd = sd(tc$Price)
 res = (price - xbar)/(sd*sqrt(1-1/n))
-plot(price, res)
+plot(tc$Year, res)
+plot(tc$Mileage, res)
 ```
 
-# one bootstrap regression eg for ford
+
+# bootstrap regression for low end
 ```{r}
-brand = "Ford"
+cate = "low-end"
 temp = tc %>% 
-  filter(Make == brand) %>% 
+  filter(Category == cate) %>% 
   select(Price, Year, Mileage)
 fit = lm(Price~Year + Mileage, data=temp)
-n= nrow(temp)
+n1= nrow(temp)
 y_predict = predict(fit)
-B = 100
+B = 1000
 coeff_BT_wild = matrix(NA, nrow=B, ncol=3)
 for(i_BT in 1:B){
-  y_bt = y_predict+rnorm(n, sd=abs(fit$residuals))
+  y_bt = y_predict+rnorm(n1, sd=abs(fit$residuals))
   data1_BT = data.frame(years=temp$Year, mileage = temp$Mileage, price=y_bt)
   fit_BT = lm(price~years + mileage, data=data1_BT)
   coeff_BT_wild[i_BT,] = fit_BT$coefficients
@@ -113,10 +117,84 @@ colnames(coeff_BT_wild) = c("Intercept","ce year", "ce mileage")
 quantile(coeff_BT_wild[,'Intercept'],c(0.05,0.95))
 quantile(coeff_BT_wild[,'ce year'],c(0.05,0.95))
 quantile(coeff_BT_wild[,'ce mileage'],c(0.05,0.95))
+plot(X,Y, pch=20, cex=0.5, col="gray")
+lines(gr_x,gr_y, lwd=2, col="black")
+lines(gr_x,gr_y+qnorm(0.999)*gr_y_sd_wild, lwd=2, col="red", lty=2)
+#100 bt
+#     5%      95% 
+#-1413018 -1327120 
+#     5%      95% 
+#667.8666 710.4538 
+#        5%         95% 
+#-0.04815179 -0.04355216 
+#1000 bt
+#      5%      95% 
+#-1427509 -1323710 
+#      5%      95% 
+#666.1856 717.6106 
+#         5%         95% 
+#-0.04815183 -0.04283102 
+```
+# bootstrap regression for mid range
+```{r}
+cate2 = "mid-range"
+temp2 = tc %>% 
+  filter(Category == cate2) %>% 
+  select(Price, Year, Mileage)
+fit2 = lm(Price~Year + Mileage, data=temp2)
+n2= nrow(temp2)
+y_predict2 = predict(fit2)
+B = 1000
+coeff_BT_wild2 = matrix(NA, nrow=B, ncol=3)
+for(i_BT in 1:B){
+  y_bt = y_predict2+rnorm(n2, sd=abs(fit2$residuals))
+  data1_BT = data.frame(years=temp2$Year, mileage = temp2$Mileage, price=y_bt)
+  fit_BT = lm(price~years + mileage, data=data1_BT)
+  coeff_BT_wild2[i_BT,] = fit_BT$coefficients
+}
+colnames(coeff_BT_wild2) = c("Intercept","ce year", "ce mileage")
+quantile(coeff_BT_wild2[,'Intercept'],c(0.05,0.95))
+quantile(coeff_BT_wild2[,'ce year'],c(0.05,0.95))
+quantile(coeff_BT_wild2[,'ce mileage'],c(0.05,0.95))
+#      5%      95% 
+#-2537737 -2402189 
+#      5%      95% 
+#1207.071 1274.225 
+#         5%         95% 
+#-0.06585668 -0.05922462 
+
+```
+# bootstrap regression for high end 
+```{r}
+cate3 = "high-end"
+temp3 = tc %>% 
+  filter(Category == cate3) %>% 
+  select(Price, Year, Mileage)
+fit3 = lm(Price~Year + Mileage, data=temp3)
+n3= nrow(temp3)
+y_predict3 = predict(fit3)
+B = 1000
+coeff_BT_wild3 = matrix(NA, nrow=B, ncol=3)
+for(i_BT in 1:B){
+  y_bt = y_predict3+rnorm(n3, sd=abs(fit3$residuals))
+  data1_BT = data.frame(years=temp3$Year, mileage = temp3$Mileage, price=y_bt)
+  fit_BT = lm(price~years + mileage, data=data1_BT)
+  coeff_BT_wild3[i_BT,] = fit_BT$coefficients
+}
+colnames(coeff_BT_wild3) = c("Intercept","ce year", "ce mileage")
+quantile(coeff_BT_wild3[,'Intercept'],c(0.05,0.95))
+quantile(coeff_BT_wild3[,'ce year'],c(0.05,0.95))
+quantile(coeff_BT_wild3[,'ce mileage'],c(0.05,0.95))
+#        5%       95% 
+# -30520559 -23186964 
+#      5%      95% 
+# 11628.99 15268.70 
+#        5%        95% 
+#-1.5287048 -0.3142366      
 ```
 
 
-# discard! ignore! brand: Ford, training 7/3
+# discard! brand: Ford, training 7/3
 
 ```{r}
 tesla = tc %>% filter(Make == "Audi")
@@ -127,14 +205,14 @@ train <- tesla[trainingRows, ]
 test <- tesla[-trainingRows, ]
 ```
 
-# discard! ignore! convert Mileage and Year to categorical 
+# discard! convert Mileage and Year to categorical 
 ```{r}
 train$Mileage = factor(train$Mileage)
 train$Year = factor(train$Year)
 fit = lm(Price ~ Year + Mileage + City, data = train)
 summary(fit)
 ```
-# convert make into factor -- one liner regression
+# discard! convert make into factor -- one liner regression
 ```{r}
 train_size = nrow(tc) * 0.7  ## 863129
 set.seed(100)
