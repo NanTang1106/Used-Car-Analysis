@@ -8,7 +8,9 @@ car make -- average price
 library(readr)
 library(dplyr)
 library(ggplot2)
-tc <- read_csv("new_tc.csv")
+tc_origin <- read_csv("tc.csv")
+nrow(tc_origin)
+test = tc_origin %>% filter(Make == 'Ferrari')
 ordered_grouped_make <- tc %>%
   group_by(Make) %>%
   summarise(average = mean(Price)) %>%
@@ -105,7 +107,7 @@ temp = tc %>%
 fit = lm(Price~Year + Mileage, data=temp)
 n1= nrow(temp)
 y_predict = predict(fit)
-B = 1000
+B = 100
 coeff_BT_wild = matrix(NA, nrow=B, ncol=3)
 for(i_BT in 1:B){
   y_bt = y_predict+rnorm(n1, sd=abs(fit$residuals))
@@ -117,23 +119,14 @@ colnames(coeff_BT_wild) = c("Intercept","ce year", "ce mileage")
 quantile(coeff_BT_wild[,'Intercept'],c(0.05,0.95))
 quantile(coeff_BT_wild[,'ce year'],c(0.05,0.95))
 quantile(coeff_BT_wild[,'ce mileage'],c(0.05,0.95))
-plot(X,Y, pch=20, cex=0.5, col="gray")
-lines(gr_x,gr_y, lwd=2, col="black")
-lines(gr_x,gr_y+qnorm(0.999)*gr_y_sd_wild, lwd=2, col="red", lty=2)
+plot(fit)
 #100 bt
-#     5%      95% 
-#-1413018 -1327120 
-#     5%      95% 
-#667.8666 710.4538 
-#        5%         95% 
-#-0.04815179 -0.04355216 
-#1000 bt
 #      5%      95% 
-#-1427509 -1323710 
+#-1301810 -1247678 
 #      5%      95% 
-#666.1856 717.6106 
+#629.0282 655.8358 
 #         5%         95% 
-#-0.04815183 -0.04283102 
+#-0.05583089 -0.05299645 
 ```
 # bootstrap regression for mid range
 ```{r}
@@ -225,5 +218,219 @@ fit = lm(Price ~ Year + Mileage + Make, data = train)
 summary(fit)
 ```
 
+# kernel density 3d plot for high end car
+```{r}
+library(np)
+library(rgl)
+library(magick)
+tc <- read_csv("new_tc.csv")
+cate3 = "high-end"
+temp3 = tc %>% 
+  filter(Category == cate3) %>% 
+  select(Price, Year, Mileage)
+out <- capture.output(
+  bw_temp3 <- npregbw(formula = Price ~ ordered(Year) + Mileage, data = temp3,
+                         regtype = "ll", nmulti = 2)
+)
+summary(bw_temp3)
+fit_temp3 <- np::npreg(bw_temp3)
+summary(fit_temp3)
+x_grid <- sort(unique(temp3$Year))
+y_grid <- sort(unique(temp3$Mileage))
+xy_grid <- expand.grid(x_grid, y_grid)
+colnames(xy_grid) <- c("Year", "Mileage")
+f = as.data.frame(xy_grid)
+f_1 <- f %>% 
+  group_by(Year) %>%
+  arrange(Year)
+fit_graph <- predict(fit_temp3, newdata = f_1)
+f_year <- matrix(data=fit_graph, nrow=16, byrow=T)
+open3d() 
+plot3d(x = temp3$Year, y = temp3$Mileage, z = temp3$Price, xlab = "Year", ylab = "Mileage", zlab = "Price", col = "coral")
+rgl::surface3d(x = x_grid, y = y_grid, z = f_year,
+               col = "skyblue", alpha = 0.8, lit = FALSE)
+rgl::rglwidget()
+par3d(windowRect = c(20, 30, 500, 500))
+movie3d(spin3d(), duration = 10, clean=FALSE,dir='/Users/claire/Desktop/test', type = "gif", convert=NULL)
 
+```
+
+# kernel density for mid range car
+```{r}
+cate2 = "mid-range"
+temp2 = tc %>% 
+  filter(Category == cate2) %>% 
+  select(Price, Year, Mileage)
+
+index = sample(nrow(temp2), 1000, replace = T)
+sampletemp2 = temp2[index, ] 
+out <- capture.output(
+  bw_temp2 <- npregbw(formula = Price ~ ordered(Year) + Mileage, data = sampletemp2,
+                         regtype = "ll", nmulti = 2)
+)
+summary(bw_temp2)
+fit_temp2 <- np::npreg(bw_temp2)
+summary(fit_temp2)
+x_grid2 <- sort(unique(sampletemp2$Year))
+y_grid2 <- sort(unique(sampletemp2$Mileage))
+xy_grid2 <- expand.grid(x_grid2, y_grid2)
+colnames(xy_grid2) <- c("Year", "Mileage")
+f = as.data.frame(xy_grid2)
+f_new <- f %>% 
+  group_by(Year) %>%
+  arrange(Year)
+fit_graph <- predict(fit_temp2, newdata = f_new)
+f_year <- matrix(data=fit_graph, nrow=20, byrow=T)
+open3d() 
+plot3d(x = sampletemp2$Year, y = sampletemp2$Mileage, z = sampletemp2$Price, xlab = "Year", ylab = "Mileage", zlab = "Price", col = "coral")
+rgl::surface3d(x = x_grid2, y = y_grid2, z = f_year,
+               col = "skyblue", alpha = 0.8, lit = FALSE)
+rgl::rglwidget()
+par3d(windowRect = c(20, 30, 500, 500))
+movie3d(spin3d(), duration = 10, clean=TRUE,dir='/Users/claire/Desktop/test', type = "gif", convert=NULL)
+
+```
+
+# kernel density for lower car
+```{r}
+cate1 = "low-end"
+temp1 = tc %>% 
+  filter(Category == cate1) %>% 
+  select(Price, Year, Mileage)
+index1 = sample(nrow(temp1), 1000, replace = T)
+temp1 = temp1[index1, ]
+out <- capture.output(
+  bw_temp1 <- npregbw(formula = Price ~ Year + Mileage, data = temp1,
+                         regtype = "ll", nmulti = 2)
+)
+summary(bw_temp1)
+fit_temp1 <- np::npreg(bw_temp1)
+summary(fit_temp1)
+x_grid1 <- sort(unique(temp1$Year))
+y_grid1 <- sort(unique(temp1$Mileage))
+xy_grid1 <- expand.grid(x_grid1, y_grid1)
+colnames(xy_grid1) <- c("Year", "Mileage")
+f = as.data.frame(xy_grid1)
+f_new_1 <- f %>% 
+  group_by(Year) %>%
+  arrange(Year)
+fit_graph <- predict(fit_temp1, newdata = f_new_1)
+f_year <- matrix(data=fit_graph, nrow=20, byrow=T)
+open3d() 
+plot3d(x = temp1$Year, y = temp1$Mileage, z = temp1$Price, xlab = "Year", ylab = "Mileage", zlab = "Price", col = "coral")
+rgl::surface3d(x = x_grid1, y = y_grid1, z = f_year,
+               col = "skyblue", alpha = 0.8, lit = FALSE)
+rgl::rglwidget()
+par3d(windowRect = c(20, 30, 500, 500))
+movie3d(spin3d(), duration = 10, clean=TRUE,dir='/Users/claire/Desktop/test', type = "gif", convert=NULL)
+```
+
+
+
+# linear low end
+```{r}
+fitlinearl1 = lm(Price ~ Year + Mileage, data = temp1)
+x_grid_l1 <- unique(temp1$Year)
+y_grid_l1 <- unique(temp1$Mileage)
+xy_grid_l1 <- as.matrix(expand.grid(x_grid_l1, y_grid_l1))
+colnames(xy_grid_l1) <- c("Year", "Mileage")
+fl1 = as.data.frame(xy_grid_l1)
+f_new_l1 <- fl1 %>% 
+  group_by(Year) %>%
+  arrange(Year)
+fit_graphl1 <- predict(fitlinearl1, newdata = f_new_l1)
+f_yearl1 <- matrix(data=fit_graphl1, nrow=22, byrow=T)
+open3d()
+plot3d(x = temp1$Year, y = temp1$Mileage, z = temp1$Price, xlab = "Year", ylab = "Mileage", zlab = "Price", col = "skyblue")
+rgl::surface3d(x = x_grid_l1, y = y_grid_l1, z = f_yearl1, col = "pink", alpha = 0.8, lit = FALSE)
+rgl::rglwidget()
+par3d(windowRect = c(20, 30, 500, 500))
+movie3d(spin3d(), duration = 10, clean=TRUE,dir='/Users/claire/Desktop/test', type = "gif", convert=NULL)
+```
+
+# linear mid range
+```{r}
+fitlinearl2 = lm(Price ~ Year + Mileage, data = temp2)
+x_gridl2 <- unique(temp2$Year)
+y_gridl2 <- unique(temp2$Mileage)
+xy_gridl2 <- as.matrix(expand.grid(x_gridl2, y_gridl2))
+fit_graphl2 <- predict(fitlinearl2, newdata = xy_gridl2)
+plot3d(x = temp2$Year, y = temp2$Mileage, z = temp2$Price, xlab = "Year", ylab = "Mileage", zlab = "Price")
+rgl::surface3d(x = x_gridl2, y = y_gridl2, z = matrix(fit_graphl2, nrow = 16, ncol = 711),
+               col = "green", alpha = 0.25, lit = FALSE)
+rgl::rglwidget()
+```
+
+# linear high end
+```{r}
+cate3 = "high-end"
+temp3 = tc %>% 
+  filter(Category == cate3) %>% 
+  select(Price, Year, Mileage)
+fitlinearl3 = lm(Price ~ Year + Mileage, data = temp3)
+## ci bt
+n3= nrow(temp3)
+y_predict3 = predict(fitlinearl3)
+B = 1000
+coeff_BT_wild3 = matrix(NA, nrow=B, ncol=3)
+for(i_BT in 1:B){
+  y_bt = y_predict3+rnorm(n3, sd=abs(fitlinearl3$residuals))
+  data1_BT = data.frame(years=temp3$Year, mileage = temp3$Mileage, price=y_bt)
+  fit_BT = lm(price~years + mileage, data=data1_BT)
+  coeff_BT_wild3[i_BT,] = fit_BT$coefficients
+}
+colnames(coeff_BT_wild3) = c("Intercept","ce year", "ce mileage")
+quantile(coeff_BT_wild3[,'Intercept'],c(0.05,0.95))
+quantile(coeff_BT_wild3[,'ce year'],c(0.05,0.95))
+quantile(coeff_BT_wild3[,'ce mileage'],c(0.05,0.95))
+#        5%       95% 
+# -22398988 -18434292 
+#       5%       95% 
+# 9270.439 11238.037 
+#       5%       95% 
+# -2.234915 -1.402934     
+x_gridl3 <- sort(unique(temp3$Year))
+y_gridl3 <- sort(unique(temp3$Mileage))
+xy_gridl3 <- expand.grid(x_gridl3, y_gridl3)
+colnames(xy_gridl3) <- c("Year", "Mileage")
+fl3 = as.data.frame(xy_gridl3)
+f_new_l3 <- fl3 %>% 
+  group_by(Year) %>%
+  arrange(Year)
+lower <- function(x,y) {
+  return (-22398988 + 9270.439*x - 2.234915*y)
+}
+upper <- function(x,y) {
+  return (-18434292 + 11238.037 * x - 1.402934*y)
+}
+fit_upper <- matrix(data = upper(f_new_l3$Year, f_new_l3$Mileage), nrow = 16, byrow = T)
+fit_lower <- matrix(data = lower(f_new_l3$Year, f_new_l3$Mileage), nrow = 16, byrow = T)
+fit_graphl3 <- predict(fitlinearl3, newdata = f_new_l3)
+f_yearl3 <- matrix(data=fit_graphl3, nrow=16, byrow=T)
+open3d()
+plot3d(x = temp3$Year, y = temp3$Mileage, z = temp3$Price, xlab = "Year", ylab = "Mileage", zlab = "Price", col = "coral")
+rgl::surface3d(x = x_gridl3, y = y_gridl3, z = f_yearl3,
+               col = "orchid", alpha = 0.25, lit = FALSE)
+rgl::surface3d(x = x_gridl3, y = y_gridl3, z = fit_lower,
+               col = "skyblue", alpha = 0.25, lit = FALSE)
+rgl::surface3d(x = x_gridl3, y = y_gridl3, z = fit_upper,
+               col = "skyblue", alpha = 0.25, lit = FALSE)
+rgl::rglwidget()
+```
+```{r}
+# empirical bootstrap
+B = 10000
+n = nrow(temp3)
+coeff_emp_BT = matrix(NA, nrow=B, ncol=3)
+for(i_BT in 1:B){
+  w = sample(n,n,replace=T)
+  data_emp_BT = temp3[w,]
+  fit_BT = lm(Price ~ Year + Mileage, data=data_emp_BT)
+  coeff_emp_BT[i_BT,] = fit_BT$coefficients
+}
+colnames(coeff_emp_BT) = c("Intercept","year", "mileage")
+quantile(coeff_emp_BT[,'Intercept'],c(0.05,0.95))
+quantile(coeff_emp_BT[,'year'],c(0.05,0.95))
+quantile(coeff_emp_BT[,'mileage'],c(0.05,0.95))
+```
 
